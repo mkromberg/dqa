@@ -1,6 +1,4 @@
-# dqa
-
-Dyalog QA Framework
+# dqa - the Dyalog QA Framework
 
 See functions in demos folder for examples of how to use the MATCH function.
 
