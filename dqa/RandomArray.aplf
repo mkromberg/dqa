@@ -1,4 +1,4 @@
- array←{seed}RandomArray(id types shape);⎕FR;⎕IO;i;type;subinds;subarray;cols;last;n;t;chunk;width;force;multiple;seedValue
+ array←{seed}RandomArray args;id;types;shape;only;oddeven;⎕FR;⎕IO;i;type;subinds;subarray;cols;last;n;t;chunk;width;force;multiple;seedValue;z;le
  ⍝ id is used as a suffix for variable names to make it easier to reproduce a failure
  ⍝    when calling RandomArray, the result should assigned randXXX where XXX is the id provided
  ⍝ types can either be a single type or vector of types
@@ -7,8 +7,13 @@
  ⍝
  ⍝ Example:
  ⍝     rand0←RandomArray 0 (80 163) (10 7) ⍝ 10×7 matrix of Unicode chars and 2-byte integers
+ ⍝     rand1←RandomArray 1 163 1000 1 ¯1 ⍝ 1000 element vector of even 2-byte values containing no elements that could be represented as 1-byte
 
  ⎕IO←0
+
+ (id types shape only oddeven)←5↑args,(≢args)↓0 83 1 0 0
+ '"oddeven" supported for types 83 163 323'⎕SIGNAL((oddeven≠0)∧~(⊂types)∊83 163 323)/11
+ '"only" supported for types 163 323'⎕SIGNAL((only≠0)∧~(⊂types)∊163 323)/11
 
  :If 2=⎕NC'seed' ⋄ ⎕RL←seed 0           ⍝ Playback mode: regenerate an array
  :Else ⋄ RecordSeed id types shape ⎕RL  ⍝ Record mode
@@ -24,8 +29,16 @@
 
  :Select type←⊃types
  :CaseList 11 83 163 323 645 1287
+     le←256=163 ⎕DR ¯16↑1                ⍝ little-endian
      width←⌊0.1×type
-     array←type DR?(width××/shape)⍴2
+     n←≢z←?(shape,width)⍴2
+     :If oddeven≠0 ⋄ z[;¯1+le⊃width 8]←oddeven=1 ⋄ :EndIf ⍝ LSB bit to 0 or 1
+     cols←(8×¯1*~le)↓⍳width
+     :While 0≠≢i←⍸only∧(z[;cols]∧.=0)∨z[;cols]∧.=1 ⍝ Find values which COULD compact to smaller type
+         z[i;cols]←?((≢i),width-8)⍴2 ⍝ Bump them up
+     :EndWhile
+     array←type DR,z
+
  :Case 1289
      n←64××/shape ⋄ array←(645 DR?n⍴2)+0J1×(645 DR?n⍴2)
  :CaseList 80 160 320
@@ -42,30 +55,36 @@
 
  multiple←1<≢types
  force←?shape
- array[⊂force]←seedValue array ⍝ force at least one element to be non-compactible (if applicable)
+ seed←seedValue array ⍝ force at least one element to be non-compactible (if applicable)
+ seed←seed+(oddeven≠0)×(2|seed)≠(oddeven+1)⊃0 0 1
+ array[⊂force]←seed
 
- →0⍴⍨1=t←≢types  ⍝ multiple types?
+ :If 1=t←≢types  ⍝ single type
+     :If types≠⎕DR array ⋄ ∘∘∘ ⋄ :EndIf ⍝ This did not work
 
- cols←(⊢/force)~⍨⍳n←⊢/shape ⍝ column indices
- last←¯1+≢shape  ⍝ last axis
- chunk←1⌈⌊n÷t    ⍝ chunk size
+ :Else ⍝ multiple types?
 
- :For type :In 1↓types
-     :If 0<≢cols
-         shape←(¯1↓shape),chunk⌊≢cols
-         :Select type
-         :CaseList 11 83 163 323 645 1287
-             width←⌊0.1×type
-             subarray←type DR?(width××/shape)⍴2
-         :Case 1289
-             n←64××/shape ⋄ subarray←(645 DR?n⍴2)+0J1×(645 DR?n⍴2)
-         :CaseList 80 160 320
-             width←⌊0.1×type
-             subarray←⎕UCS?shape⍴2*20⌊width
-         :Case 326 ⋄ subarray←⎕NS¨shape⍴⊂''
-         :EndSelect
-         subinds←(⊢/shape)?≢cols
-         ⍎'array[',(last⍴';'),'subinds]←shape⍴subarray'
-         cols~←subinds
-     :EndIf
- :EndFor
+     cols←(⊢/force)~⍨⍳n←⊢/shape ⍝ column indices
+     last←¯1+≢shape  ⍝ last axis
+     chunk←1⌈⌊n÷t    ⍝ chunk size
+
+     :For type :In 1↓types
+         :If 0<≢cols
+             shape←(¯1↓shape),chunk⌊≢cols
+             :Select type
+             :CaseList 11 83 163 323 645 1287
+                 width←⌊0.1×type
+                 subarray←type DR?(width××/shape)⍴2
+             :Case 1289
+                 n←64××/shape ⋄ subarray←(645 DR?n⍴2)+0J1×(645 DR?n⍴2)
+             :CaseList 80 160 320
+                 width←⌊0.1×type
+                 subarray←⎕UCS?shape⍴2*20⌊width
+             :Case 326 ⋄ subarray←⎕NS¨shape⍴⊂''
+             :EndSelect
+             subinds←(⊢/shape)?≢cols
+             ⍎'array[',(last⍴';'),'subinds]←shape⍴subarray'
+             cols~←subinds
+         :EndIf
+     :EndFor
+ :EndIf

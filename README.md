@@ -24,4 +24,13 @@ dqa.Cleanup ''|folder        ⍝ Delete all log files in folder ('' means temp f
 
 ## dqa.RandomArray
 
-{seed} dqa.RandomArray (id types shape)
+randId←{seed} dqa.RandomArray (Id types shape only oddeven)
+
+id    ⍝ an integer that should be used to name the variable that holds the value
+      ⍝ e.g.     rand0←dqa.RandomArray 0 ...
+types ⍝ ⎕DR type (or for a nested array types) that each element should have
+shape ⍝ the shape of the generated array
+
+Optionally:
+only  ⍝ for types 163 and 323, do not include any integers values that COULD be held in a smaller type
+oddeven ⍝ for types 83 163 and 323, oddeven=1 to generate odd values, oddeven=¯1 to generate even values only
